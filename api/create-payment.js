@@ -15,6 +15,18 @@ module.exports = async (req, res) => {
     const { studentName, customerName, customerEmail, customerPhone, lessonType, priceId, paymentMethodId } = req.body;
 
     try {
+        // Get the first day of next month in Arizona time (UTC-7)
+        const now = new Date();
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+        // Convert to Arizona time (UTC-7) manually
+        const arizonaTimeOffset = -7; // Arizona time is UTC-7
+        nextMonth.setHours(0, 0, 0, 0); // Set time to midnight
+        nextMonth.setHours(nextMonth.getHours() + arizonaTimeOffset); // Adjust to Arizona time
+
+        // Convert the date to a Unix timestamp (in seconds)
+        const billingCycleAnchor = Math.floor(nextMonth.getTime() / 1000);
+
         // 1. Create Customer with Payment Method
         const customer = await stripe.customers.create({
             name: customerName,
@@ -29,18 +41,11 @@ module.exports = async (req, res) => {
         await stripe.paymentMethods.attach(paymentMethodId, { customer: customer.id });
 
         // 3. Create Subscription with Proration & Auto-Billing
-        // Calculate the first day of the next month in UTC
-        const now = new Date();
-        const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)); // next month's 1st day in UTC
-        
-        // Convert to seconds for Stripe (UNIX timestamp)
-        const billingCycleAnchor = Math.floor(nextMonth.getTime() / 1000);
-
         const subscription = await stripe.subscriptions.create({
             customer: customer.id,
             items: [{ price: priceId }],
             proration_behavior: 'create_prorations',
-            billing_cycle_anchor: billingCycleAnchor, // Ensure it starts on the first day of the next month
+            billing_cycle_anchor: billingCycleAnchor, // Set to midnight of the first of next month in Arizona time
             payment_behavior: 'default_incomplete', // Ensures payment intent is created
             expand: ['latest_invoice.payment_intent'],
         });
