@@ -19,13 +19,14 @@ module.exports = async (req, res) => {
         const now = new Date();
         const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-        // Convert to Arizona time (UTC-7) manually
-        const arizonaTimeOffset = -7; // Arizona time is UTC-7
-        nextMonth.setHours(0, 0, 0, 0); // Set time to midnight
-        nextMonth.setHours(nextMonth.getHours() + arizonaTimeOffset); // Adjust to Arizona time
+        // Convert the time to Arizona time (UTC-7) by using toLocaleString with timezone set to 'America/Phoenix'
+        const arizonaTime = new Date(nextMonth.toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
+
+        // Set time to midnight of the first of the next month in Arizona time
+        arizonaTime.setHours(0, 0, 0, 0);
 
         // Convert the date to a Unix timestamp (in seconds)
-        const billingCycleAnchor = Math.floor(nextMonth.getTime() / 1000);
+        const billingCycleAnchor = Math.floor(arizonaTime.getTime() / 1000);
 
         // 1. Create Customer with Payment Method
         const customer = await stripe.customers.create({
