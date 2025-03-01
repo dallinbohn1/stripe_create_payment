@@ -1,4 +1,5 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { DateTime } = require('luxon');
 
 module.exports = async (req, res) => {
     if (req.method !== 'POST') {
@@ -15,19 +16,6 @@ module.exports = async (req, res) => {
     const { studentName, customerName, customerEmail, customerPhone, lessonType, priceId, paymentMethodId } = req.body;
 
     try {
-        // Get the first day of next month in Arizona time (UTC-7)
-        const now = new Date();
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-        // Convert the time to Arizona time (UTC-7) by using toLocaleString with timezone set to 'America/Phoenix'
-        const arizonaTime = new Date(nextMonth.toLocaleString('en-US', { timeZone: 'America/Phoenix' }));
-
-        // Set time to midnight of the first of the next month in Arizona time
-        arizonaTime.setHours(0, 0, 0, 0);
-
-        // Convert the date to a Unix timestamp (in seconds)
-        const billingCycleAnchor = Math.floor(arizonaTime.getTime() / 1000);
-
         // 1. Create Customer with Payment Method
         const customer = await stripe.customers.create({
             name: customerName,
@@ -42,11 +30,18 @@ module.exports = async (req, res) => {
         await stripe.paymentMethods.attach(paymentMethodId, { customer: customer.id });
 
         // 3. Create Subscription with Proration & Auto-Billing
+        const nextMonthStart = DateTime.now()
+            .setZone('America/Phoenix') // Set Arizona timezone
+            .plus({ months: 1 }) // Go to the next month
+            .startOf('month') // Set to the start of the month
+            .set({ hour: 0, minute: 0, second: 0, millisecond: 0 }) // Set to midnight
+            .toSeconds(); // Convert to Unix timestamp
+
         const subscription = await stripe.subscriptions.create({
             customer: customer.id,
             items: [{ price: priceId }],
             proration_behavior: 'create_prorations',
-            billing_cycle_anchor: billingCycleAnchor, // Set to midnight of the first of next month in Arizona time
+            billing_cycle_anchor: nextMonthStart,
             payment_behavior: 'default_incomplete', // Ensures payment intent is created
             expand: ['latest_invoice.payment_intent'],
         });
@@ -55,7 +50,7 @@ module.exports = async (req, res) => {
         res.status(200).json({ message: "Subscription Created!", subscriptionId: subscription.id });
 
     } catch (error) {
-        console.error(`Stripe API Error:`, error);
+        console.error('Stripe API Error:', error);
         res.status(400).json({
             error: error.message,
             type: error.type,
