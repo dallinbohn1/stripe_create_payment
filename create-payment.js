@@ -1,32 +1,17 @@
-require('dotenv').config();
-const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const bodyParser = require('body-parser');
-const cors = require('cors');
 
-const app = express();
-app.use(cors());
-app.use(bodyParser.json());
+module.exports = async (req, res) => {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: "Method Not Allowed" });
+    }
 
-// 🕐 Function to get the first day of next month
-function getNextMonthTimestamp() {
-    const now = new Date();
-    return Math.floor(new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime() / 1000);
-}
-
-// ✅ Middleware to validate request body
-function validateRequestBody(req, res, next) {
     const requiredFields = ["studentName", "customerName", "customerEmail", "customerPhone", "lessonType", "priceId", "paymentMethodId"];
     for (const field of requiredFields) {
         if (!req.body[field]) {
             return res.status(400).json({ error: `Missing required field: ${field}` });
         }
     }
-    next();
-}
 
-// 🚀 Create a Subscription Route
-app.post('/create-subscription', validateRequestBody, async (req, res) => {
     const { studentName, customerName, customerEmail, customerPhone, lessonType, priceId, paymentMethodId } = req.body;
 
     try {
@@ -48,7 +33,7 @@ app.post('/create-subscription', validateRequestBody, async (req, res) => {
             customer: customer.id,
             items: [{ price: priceId }],
             proration_behavior: 'create_prorations',
-            billing_cycle_anchor: getNextMonthTimestamp(),
+            billing_cycle_anchor: Math.floor(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).getTime() / 1000),
             payment_behavior: 'default_incomplete', // Ensures payment intent is created
             expand: ['latest_invoice.payment_intent'],
         });
@@ -65,14 +50,11 @@ app.post('/create-subscription', validateRequestBody, async (req, res) => {
             param: error.param || "N/A"
         });
     }
-});
+};
 
-// 🌐 Start the Express Server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 /*
-    curl -X POST http://localhost:3000/create-subscription \
+    curl -L -X POST https://stripe-create-payment.vercel.app/create-subscription \
 -H "Content-Type: application/json" \
 -d '{
   "studentName": "Little Johnny",
@@ -84,20 +66,6 @@ app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   "paymentMethodId": "pm_1QxDwDIaMu5TUCAvrv1R2icI"
 }'
 
-    createSubscription
-    - studentName
-    - customerName
-    - customerEmail
-    - customerPhone
-    - customerLessonType
-    - paymentMethodId
-    - priceId
-
-//createSubscription("Dallin-Bohn", "Dallin-Bohn", "dallinbohn1@gmail.com", "9514667554", "30-minute", "", lessonPlans["30min"]);
 //stripe payment_methods create -d type=card -d "card[token]=tok_visa"
-
-'30min': 'prod_RqLDMbGVwWadJk',
-'45min': 'prod_RqLEG3yfQCJ6J4',
-'60min': 'prod_RqLGEXo5sze7VD'
 
 */
