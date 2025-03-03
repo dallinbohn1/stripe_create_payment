@@ -1,21 +1,17 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { DateTime } = require('luxon');
 
-const PRICE_ID_MAP = {
-    // Testing:
-
-    "30 Minute Lessons - $150 / Month": price_1QxCAgIaMu5TUCAvAYJ1hCm0,
-    "45 Minute Lessons - $255 / Month": price_1QxDDOIaMu5TUCAv38VEqyFU,
-    "60 Minute Lessons - $300 / Month": price_1QxDDfIaMu5TUCAvHi6jUXYu
-
-    // Live:
-
-    /*
-    "30 Minute Lessons - $150 / Month": price_1QweXFIaMu5TUCAvMfkFUcnp
-    "45 Minute Lessons - $255 / Month": price_1QweYQIaMu5TUCAv3z4AGnAv
-    "60 Minute Lessons - $300 / Month": price_1QweZcIaMu5TUCAv76jQaoON
-    */
-};
+    const PRICE_ID_MAP = process.env.STRIPE_LIVE_MODE === "true"
+    ? {  // Live Mode Price IDs
+        "30 Minute Lessons - $150 / Month": price_1QweXFIaMu5TUCAvMfkFUcnp,
+        "45 Minute Lessons - $255 / Month": price_1QweYQIaMu5TUCAv3z4AGnAv,
+        "60 Minute Lessons - $300 / Month": price_1QweZcIaMu5TUCAv76jQaoON
+      }
+    : {  // Test Mode Price IDs
+        "30 Minute Lessons - $150 / Month": price_1QxCAgIaMu5TUCAvAYJ1hCm0,
+        "45 Minute Lessons - $255 / Month": price_1QxDDOIaMu5TUCAv38VEqyFU,
+        "60 Minute Lessons - $300 / Month": price_1QxDDfIaMu5TUCAvHi6jUXYu
+      };
 
 module.exports = async (req, res) => {
     if (req.method !== 'POST') {
