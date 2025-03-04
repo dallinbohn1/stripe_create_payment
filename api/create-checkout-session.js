@@ -59,12 +59,6 @@ module.exports = async (req, res) => {
       expand: ["latest_invoice.payment_intent"],
     });
 
-    // Retrieve the latest invoice (which includes the prorated charge)
-    const invoice = await stripe.invoices.retrieve(subscription.latest_invoice.id);
-
-    // Finalize the invoice so it's immediately chargeable
-    await stripe.invoices.finalizeInvoice(invoice.id);
-
     // Create a checkout session to charge the customer for the prorated amount and set up auto-pay
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
