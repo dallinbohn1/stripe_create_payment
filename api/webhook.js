@@ -5,11 +5,17 @@ const { DateTime } = require('luxon');
 const TIME_ZONE = "America/Phoenix";
 
 // Stripe price IDs
-const PRICE_ID_MAP = {
-  "30 Minute Lessons - $150 / Month": process.env.STRIPE_PRICE_30,
-  "45 Minute Lessons - $225 / Month": process.env.STRIPE_PRICE_45,
-  "60 Minute Lessons - $300 / Month": process.env.STRIPE_PRICE_60
-};
+const PRICE_ID_MAP = process.env.STRIPE_LIVE_MODE === "true"
+  ? {  // Live Mode Price IDs
+      "30 Minute Lessons - $150 / Month": 'price_1QweXFIaMu5TUCAvMfkFUcnp',
+      "45 Minute Lessons - $225 / Month": 'price_1QweYQIaMu5TUCAv3z4AGnAv',
+      "60 Minute Lessons - $300 / Month": 'price_1QweZcIaMu5TUCAv76jQaoON'
+    }
+  : {  // Test Mode Price IDs
+      "30 Minute Lessons - $150 / Month": 'price_1QxCAgIaMu5TUCAvAYJ1hCm0',
+      "45 Minute Lessons - $225 / Month": 'price_1QxDDOIaMu5TUCAv38VEqyFU',
+      "60 Minute Lessons - $300 / Month": 'price_1QxDDfIaMu5TUCAvHi6jUXYu'
+    };
 
 export const config = { api: { bodyParser: false } }; // Required for Stripe webhook signature verification
 
