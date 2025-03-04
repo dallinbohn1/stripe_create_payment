@@ -71,7 +71,8 @@ module.exports = async (req, res) => {
         quantity: 1
       }],
       success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
-      cancel_url: `${CLIENT_URL}/cancellation`
+      cancel_url: `${CLIENT_URL}/cancellation`,
+      metadata: { student_name: studentName, lesson_type: lessonType }
     });
 
     console.log("Lesson Type being passed to metadata:", lessonType);
