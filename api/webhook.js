@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const customerId = session.customer;
-      const lessonType = session.metadata.lesson_type;
+      const lessonType = session.metadata.lessonType;
   
       console.log("Lesson Type from session:", lessonType);
   
