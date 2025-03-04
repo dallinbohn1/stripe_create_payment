@@ -1,6 +1,8 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { DateTime } = require('luxon');
 
+const CLIENT_URL = process.env.CLIENT_URL || "https://www.dallinbohnviolin.com";
+
 const PRICE_ID_MAP = process.env.STRIPE_LIVE_MODE === "true"
   ? {  // Live Mode Price IDs
       "30 Minute Lessons - $150 / Month": 'price_1QweXFIaMu5TUCAvMfkFUcnp',
@@ -49,12 +51,9 @@ module.exports = async (req, res) => {
         price: priceId,  // the price for the lesson
         quantity: 1,
       }],
-      // No need for success_url or cancel_url if you're just sending the link
+      success_url: `${CLIENT_URL}/thank-you`,  // Redirect on successful payment
+      cancel_url: `${CLIENT_URL}/cancellation`,  // Redirect if the user cancels
     });
-
-    // 3. Send the Checkout URL to the customer via email
-    // Assuming you're using a service like nodemailer to send emails.
-    // Your email sending logic goes here
 
     res.status(200).json({ checkoutUrl: session.url });
 
