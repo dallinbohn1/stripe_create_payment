@@ -41,6 +41,8 @@ export default async function handler(req, res) {
       const session = event.data.object;
       const customerId = session.customer;
       const lessonType = session.metadata.lessonType;
+
+      console.log("Session Object:", session);
   
       console.log("Lesson Type from session:", lessonType);
   

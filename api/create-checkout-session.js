@@ -74,6 +74,8 @@ module.exports = async (req, res) => {
       cancel_url: `${CLIENT_URL}/cancellation`
     });
 
+    console.log("Lesson Type being passed to metadata:", lessonType);
+
     res.status(200).json({ checkoutUrl: session.url });
 
   } catch (error) {
