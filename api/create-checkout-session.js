@@ -4,6 +4,7 @@ const { DateTime } = require('luxon');
 const CLIENT_URL = process.env.CLIENT_URL || "https://www.dallinbohnviolin.com";
 const TIME_ZONE = "America/Phoenix";
 
+// Stripe price IDs
 const PRICE_ID_MAP = process.env.STRIPE_LIVE_MODE === "true"
   ? {  // Live Mode Price IDs
       "30 Minute Lessons - $150 / Month": 'price_1QweXFIaMu5TUCAvMfkFUcnp',
@@ -77,6 +78,24 @@ module.exports = async (req, res) => {
 
     console.log("Lesson Type being passed to metadata:", lessonType);
 
+    // After payment, create a subscription for the next month
+    const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
+    const paymentMethodId = paymentIntent.payment_method;
+
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customer.id });
+
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: PRICE_ID_MAP[lessonType] }],
+      default_payment_method: paymentMethodId,
+      billing_cycle_anchor: firstOfNextMonth.toSeconds(),
+      proration_behavior: "none",
+      payment_behavior: "default_incomplete"
+    });
+
+    console.log("Subscription created:", subscription.id);
+
+    // Send checkout URL back to Google Apps Script
     res.status(200).json({ checkoutUrl: session.url });
 
   } catch (error) {
@@ -88,4 +107,4 @@ module.exports = async (req, res) => {
       param: error.param || "N/A"
     });
   }
-};
+};  
