@@ -57,30 +57,21 @@ module.exports = async (req, res) => {
       metadata: { student_name: studentName, lesson_type: lessonType }
     });
 
-    // Create an invoice item for the prorated charge
-    await stripe.invoiceItems.create({
-      customer: customer.id,
-      amount: proratedAmount,
-      currency: "usd",
-      description: `Prorated charge for ${lessonType} starting today`,
-    });
-
-    // Create a subscription that bills on the 1st
-    const subscription = await stripe.subscriptions.create({
-      customer: customer.id,
-      items: [{ price: priceId }],
-      billing_cycle_anchor: firstOfNextMonth.toSeconds(), // Start on the 1st
-      proration_behavior: "create_prorations",
-      payment_behavior: "error_if_incomplete",
-    });
-
-    // Generate Stripe Checkout session
+    // Generate Stripe Checkout session for prorated amount
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      mode: "setup", // To confirm payment method before subscription
+      mode: "payment",
       customer: customer.id,
-      success_url: `${CLIENT_URL}/thank-you`,
-      cancel_url: `${CLIENT_URL}/cancellation`,
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          product_data: { name: `Prorated charge for ${lessonType}` },
+          unit_amount: proratedAmount
+        },
+        quantity: 1
+      }],
+      success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
+      cancel_url: `${CLIENT_URL}/cancellation`
     });
 
     res.status(200).json({ checkoutUrl: session.url });
