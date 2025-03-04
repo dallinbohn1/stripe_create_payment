@@ -37,18 +37,9 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Fetch full price dynamically from Stripe
-    const priceObj = await stripe.prices.retrieve(priceId);
-    const fullPrice = priceObj.unit_amount; // Price is in cents
-
-    // Get current date/time in Arizona time
+    // Get the first of next month for billing anchor
     const now = DateTime.now().setZone(TIME_ZONE);
     const firstOfNextMonth = now.plus({ months: 1 }).startOf('month');
-    const daysInCurrentMonth = now.daysInMonth;
-    const daysRemaining = daysInCurrentMonth - now.day;
-
-    // Calculate prorated amount
-    const proratedAmount = Math.round((fullPrice / daysInCurrentMonth) * daysRemaining);
 
     // Create customer in Stripe
     const customer = await stripe.customers.create({
@@ -58,42 +49,38 @@ module.exports = async (req, res) => {
       metadata: { student_name: studentName, lesson_type: lessonType }
     });
 
-    // Generate Stripe Checkout session for prorated amount
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      customer: customer.id,
-      line_items: [{
-        price_data: {
-          currency: "usd",
-          product_data: { name: `Prorated charge for ${lessonType}` },
-          unit_amount: proratedAmount
-        },
-        quantity: 1
-      }],
-      success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
-      cancel_url: `${CLIENT_URL}/cancellation`,
-      metadata: { student_name: studentName, lessonType: lessonType }
-    });
-
-    console.log("Lesson Type being passed to metadata:", lessonType);
-
-    // After payment, create a subscription for the next month
-    const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
-    const paymentMethodId = paymentIntent.payment_method;
-
-    await stripe.paymentMethods.attach(paymentMethodId, { customer: customer.id });
-
+    // Create a subscription set to start billing on the first of next month
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
-      items: [{ price: PRICE_ID_MAP[lessonType] }],
-      default_payment_method: paymentMethodId,
-      billing_cycle_anchor: firstOfNextMonth.toSeconds(),
-      proration_behavior: "none",
-      payment_behavior: "default_incomplete"
+      items: [{ price: priceId }],
+      billing_cycle_anchor: firstOfNextMonth.toSeconds(), // Align to 1st of next month
+      proration_behavior: "create_prorations", // Automatically calculates the prorated charge
+      payment_behavior: "default_incomplete", // Requires payment setup
+      expand: ["latest_invoice.payment_intent"],
+    });
+
+    // Retrieve the latest invoice (which includes the prorated charge)
+    const invoice = await stripe.invoices.retrieve(subscription.latest_invoice.id);
+
+    // Finalize the invoice so it's immediately chargeable
+    await stripe.invoices.finalizeInvoice(invoice.id);
+
+    // Create a checkout session to charge the customer for the prorated amount and set up auto-pay
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "setup", // Sets up future payments without an additional charge
+      customer: customer.id,
+      success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
+      cancel_url: `${CLIENT_URL}/cancellation`,
+      metadata: { student_name: studentName, lessonType: lessonType },
+      payment_intent_data: {
+        setup_future_usage: "off_session" // Ensures the card is stored for automatic charges
+      }
     });
 
     console.log("Subscription created:", subscription.id);
+    console.log("Prorated Invoice Finalized:", invoice.id);
+    console.log("Stripe Checkout session created:", session.id);
 
     // Send checkout URL back to Google Apps Script
     res.status(200).json({ checkoutUrl: session.url });
@@ -107,4 +94,4 @@ module.exports = async (req, res) => {
       param: error.param || "N/A"
     });
   }
-};  
+};
