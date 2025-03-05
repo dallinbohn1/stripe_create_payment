@@ -37,9 +37,18 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Get the first of next month for billing anchor
+    // Fetch full price dynamically from Stripe
+    const priceObj = await stripe.prices.retrieve(priceId);
+    const fullPrice = priceObj.unit_amount; // Price is in cents
+
+    // Get current date/time in Arizona time
     const now = DateTime.now().setZone(TIME_ZONE);
     const firstOfNextMonth = now.plus({ months: 1 }).startOf('month');
+    const daysInCurrentMonth = now.daysInMonth;
+    const daysRemaining = daysInCurrentMonth - now.day;
+
+    // Calculate prorated amount dynamically
+    const proratedAmount = Math.round((fullPrice / daysInCurrentMonth) * daysRemaining);
 
     // Create customer in Stripe
     const customer = await stripe.customers.create({
@@ -62,18 +71,18 @@ module.exports = async (req, res) => {
     // Create a checkout session to charge the customer for the prorated amount and set up auto-pay
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      mode: "setup", // Sets up future payments without an additional charge
+      mode: "subscription", // Now correctly handles both prorated charge and subscription
       customer: customer.id,
+      line_items: [{
+        price: priceId,
+        quantity: 1
+      }],
       success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
       cancel_url: `${CLIENT_URL}/cancellation`,
       metadata: { student_name: studentName, lessonType: lessonType },
-      payment_intent_data: {
-        setup_future_usage: "off_session" // Ensures the card is stored for automatic charges
-      }
     });
 
     console.log("Subscription created:", subscription.id);
-    console.log("Prorated Invoice Finalized:", invoice.id);
     console.log("Stripe Checkout session created:", session.id);
 
     // Send checkout URL back to Google Apps Script
