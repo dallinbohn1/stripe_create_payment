@@ -39,6 +39,7 @@ module.exports = async (req, res) => {
   try {
     // Fetch full price dynamically from Stripe
     const priceObj = await stripe.prices.retrieve(priceId);
+    const productObj = await stripe.products.retrieve(priceObj.product);
     const fullPrice = priceObj.unit_amount; // Price is in cents
 
     // Get current date/time in Arizona time
@@ -66,7 +67,11 @@ module.exports = async (req, res) => {
       line_items: [{
         price_data: {
           currency: "usd",
-          product_data: { name: `Prorated charge for ${lessonType}` },
+          product_data: {
+            name: productObj.name,
+            description: productObj.description,
+            images: productObj.images,
+          },
           unit_amount: proratedAmount,
         },
         quantity: 1,
