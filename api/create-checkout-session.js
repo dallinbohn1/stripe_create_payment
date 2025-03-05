@@ -58,36 +58,38 @@ module.exports = async (req, res) => {
       metadata: { student_name: studentName, lesson_type: lessonType }
     });
 
+    // Create a checkout session to charge the prorated amount immediately
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      customer: customer.id,
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          product_data: { name: `Prorated charge for ${lessonType}` },
+          unit_amount: proratedAmount,
+        },
+        quantity: 1,
+      }],
+      success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
+      cancel_url: `${CLIENT_URL}/cancellation`,
+    });
+
     // Create a subscription set to start billing on the first of next month
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: priceId }],
       billing_cycle_anchor: firstOfNextMonth.toSeconds(), // Align to 1st of next month
-      proration_behavior: "create_prorations", // Automatically calculates the prorated charge
+      proration_behavior: "none", // No additional proration needed
       payment_behavior: "default_incomplete", // Requires payment setup
       expand: ["latest_invoice.payment_intent"],
     });
 
-    // Create a checkout session to charge the customer for the prorated amount and set up auto-pay
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "subscription", // Now correctly handles both prorated charge and subscription
-      customer: customer.id,
-      line_items: [{
-        price: priceId,
-        quantity: 1
-      }],
-      success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
-      cancel_url: `${CLIENT_URL}/cancellation`,
-      metadata: { student_name: studentName, lessonType: lessonType },
-    });
-
-    console.log("Subscription created:", subscription.id);
     console.log("Stripe Checkout session created:", session.id);
+    console.log("Subscription created:", subscription.id);
 
     // Send checkout URL back to Google Apps Script
     res.status(200).json({ checkoutUrl: session.url });
-
   } catch (error) {
     console.error('Stripe API Error:', error);
     res.status(400).json({
