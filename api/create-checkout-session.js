@@ -78,7 +78,32 @@ module.exports = async (req, res) => {
       }],
       success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
       cancel_url: `${CLIENT_URL}/cancellation`,
+      payment_intent_data: {
+        setup_future_usage: "off_session" // Ensures the card is stored for future use
+      }
     });
+
+    console.log("Stripe Checkout session created:", session.id);
+
+    // Wait for the checkout session to complete
+    const sessionRetrieved = await stripe.checkout.sessions.retrieve(session.id, {
+      expand: ["payment_intent"]
+    });
+
+    const paymentIntent = sessionRetrieved.payment_intent;
+    if (paymentIntent && paymentIntent.payment_method) {
+      // Attach the payment method to the customer
+      await stripe.paymentMethods.attach(paymentIntent.payment_method, {
+        customer: customer.id
+      });
+
+      // Update the customer to set this payment method as default
+      await stripe.customers.update(customer.id, {
+        invoice_settings: { default_payment_method: paymentIntent.payment_method }
+      });
+
+      console.log("Payment method attached to customer:", paymentIntent.payment_method);
+    }
 
     // Create a subscription set to start billing on the first of next month
     const subscription = await stripe.subscriptions.create({
@@ -87,10 +112,10 @@ module.exports = async (req, res) => {
       billing_cycle_anchor: firstOfNextMonth.toSeconds(), // Align to 1st of next month
       proration_behavior: "none", // No additional proration needed
       payment_behavior: "default_incomplete", // Requires payment setup
+      default_payment_method: paymentIntent?.payment_method, // Ensures subscription uses the saved method
       expand: ["latest_invoice.payment_intent"],
     });
-
-    console.log("Stripe Checkout session created:", session.id);
+    
     console.log("Subscription created:", subscription.id);
 
     // Send checkout URL back to Google Apps Script
