@@ -3,6 +3,8 @@ const { DateTime } = require('luxon');
 
 const CLIENT_URL = process.env.CLIENT_URL || "https://www.dallinbohnviolin.com";
 const TIME_ZONE = "America/Phoenix";
+// One-time registration / enrollment fee in cents ($35)
+const REGISTRATION_FEE_CENTS = 7500;
 
 // Stripe price IDs
 const PRICE_ID_MAP = process.env.STRIPE_LIVE_MODE === "true"
@@ -72,11 +74,11 @@ module.exports = async (req, res) => {
             description: productObj.description,
             images: productObj.images,
           },
-          unit_amount: proratedAmount,
+          unit_amount: REGISTRATION_FEE_CENTS,
         },
         quantity: 1,
       }],
-      success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${customer.id}&lessonType=${encodeURIComponent(lessonType)}`,
+      success_url: `${CLIENT_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}&customer_id=${encodeURIComponent(customer.id)}&lessonType=${encodeURIComponent(lessonType)}`,
       cancel_url: `${CLIENT_URL}/cancellation`,
       payment_intent_data: {
         setup_future_usage: "off_session" // Ensures the card is stored for future use
