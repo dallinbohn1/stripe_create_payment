@@ -4,7 +4,7 @@ const { DateTime } = require('luxon');
 const CLIENT_URL = process.env.CLIENT_URL || "https://www.dallinbohnviolin.com";
 const TIME_ZONE = "America/Phoenix";
 // One-time registration / enrollment fee in cents ($35)
-const REGISTRATION_FEE_CENTS = 7500;
+const REGISTRATION_FEE_CENTS = 3500;
 
 // Stripe price IDs
 const PRICE_ID_MAP = process.env.STRIPE_LIVE_MODE === "true"
