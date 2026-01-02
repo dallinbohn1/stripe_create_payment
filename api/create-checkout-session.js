@@ -74,7 +74,7 @@ module.exports = async (req, res) => {
             description: productObj.description,
             images: productObj.images,
           },
-          unit_amount: REGISTRATION_FEE_CENTS,
+          unit_amount: REGISTRATION_FEE_CENTS + proratedAmount,
         },
         quantity: 1,
       }],
