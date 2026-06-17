@@ -66,6 +66,16 @@ module.exports = async (req, res) => {
       payment_method_types: ["card"],
       mode: "payment",
       customer: customer.id,
+
+      metadata: {
+        type: "lesson_registration",
+        customer_name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
+        student_name: studentName,
+        lesson_type: lessonType
+      },
+
       line_items: [{
         price_data: {
           currency: "usd",
